@@ -1,6 +1,7 @@
 const yargs = require('yargs')
 const path = require('path');
 const fs = require('fs')
+const rimraf = require("rimraf");
 
 const args = yargs
   .usage('Usage: node $0 [options]')
@@ -35,16 +36,13 @@ const config = {
 }
 
 
-function createDir(src, cb) {
-  if (!fs.existsSync(src)) {
-    fs.mkdir(src, function(err) {
-      if (err) return cb(err)
+function createDir (src, cb) {
+  fs.mkdir(src, function (err) {
+    if (err && err.code === 'EEXIST') return cb(null)
+    if (err) return cb(err)
 
-      cb(null)
-    })
-  } else {
     cb(null)
-  }
+  })
 }
 
 function sorter(src) {
@@ -54,6 +52,9 @@ function sorter(src) {
     files.forEach(function(file) {
       const currentPath = path.join(src, file)
       
+      // const srcFolderPath = path.parse(currentPath)
+      // console.log(srcFolderPath.dir);
+
       const innerDir = (path.basename(currentPath)[0]).toUpperCase()
 
       fs.stat(currentPath, function(err, stats) {
@@ -65,26 +66,55 @@ function sorter(src) {
           createDir(config.dist, function(err) {
             if (err) throw err
 
-            createDir(`./dist/${innerDir}`, function(err) {
+            createDir(path.join(args.dist, innerDir), function(err) {
               if (err) throw err
 
-              fs.link(currentPath, `./dist/${innerDir}/${path.basename(currentPath)}`, function(err) {
+              fs.link(currentPath, path.join(args.dist, innerDir, path.basename(currentPath)), function(err) {
                 if (err) {
                   console.error(err.message)
                   return
                 }
               } )
+
               console.log(`Файл: ${path.basename(currentPath)}`, ' скопирован');
+
+                if (args.delete) {
+                  console.log(currentPath);
+                  fs.unlink(currentPath, err => {
+                    if (err) {
+                      console.log(err)
+                      return
+                    }
+                    
+                  }
+                  )
+                }
+              })
             })
-          })
         }
       }) 
     })
   })
 }
-console.log(args.delete)
+// console.log(args.entry)
 try {
+  console.log(path.resolve('src'));
   sorter(config.src)
+  
 } catch (error) {
   console.log(error.message);
 }
+
+
+process.on('exit', function() {
+  if (args.delete) {
+    // console.log(__dirname);
+    // rimraf('./src', () => { console.log("done"); });
+    fs.rmdir(path.resolve('src'), { recursive: true }, err => {
+      if(err) {
+        console.log(err);
+        return
+      }
+    })
+  }
+  })
