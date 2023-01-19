@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/tequilex/Node-loft-hw#readme",
   "dependencies": {
+    "express": "^4.18.2",
     "rimraf": "^4.1.0",
     "yargs": "^17.6.2"
   }
