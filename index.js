@@ -1,7 +1,7 @@
 const yargs = require('yargs')
 const path = require('path');
 const fs = require('fs')
-const rimraf = require("rimraf");
+const Observer = require('./libs/observer')
 
 const args = yargs
   .usage('Usage: node $0 [options]')
@@ -35,86 +35,74 @@ const config = {
   delete: args.delete
 }
 
+const observer = new Observer(() => {
+  if (config.delete) {
+    fs.rm(config.src, {recursive: true}, () => {
+      console.log('src folder deleted');
+    })
+  }
+})
 
-function createDir (src, cb) {
+function createDir(src, cb) {
   fs.mkdir(src, function (err) {
     if (err && err.code === 'EEXIST') return cb(null)
     if (err) return cb(err)
-
     cb(null)
   })
 }
 
 function sorter(src) {
-  fs.readdir(src, function(err, files) {
-    if (err) throw err
-    
-    files.forEach(function(file) {
-      const currentPath = path.join(src, file)
-      
-      // const srcFolderPath = path.parse(currentPath)
-      // console.log(srcFolderPath.dir);
+  observer.addObserver(src)
 
+  fs.readdir(src, function (err, files) {
+    if (err) throw err
+
+    files.forEach(function (file) {
+      const currentPath = path.join(src, file)
       const innerDir = (path.basename(currentPath)[0]).toUpperCase()
 
-      fs.stat(currentPath, function(err, stats) {
+      observer.addObserver(currentPath)
+
+      fs.stat(currentPath, function (err, stats) {
         if (err) throw err
 
         if (stats.isDirectory()) {
           sorter(currentPath)
+          observer.removeObserver(currentPath)
         } else {
-          createDir(config.dist, function(err) {
+          createDir(config.dist, function (err) {
             if (err) throw err
 
-            createDir(path.join(args.dist, innerDir), function(err) {
+            createDir(path.join(args.dist, innerDir), function (err) {
               if (err) throw err
 
-              fs.link(currentPath, path.join(args.dist, innerDir, path.basename(currentPath)), function(err) {
+              fs.link(currentPath, path.join(args.dist, innerDir, path.basename(currentPath)), function (err) {
+                observer.removeObserver(currentPath)
                 if (err) {
                   console.error(err.message)
                   return
                 }
-              } )
-
-              console.log(`Файл: ${path.basename(currentPath)}`, ' скопирован');
-
-                if (args.delete) {
-                  console.log(currentPath);
-                  fs.unlink(currentPath, err => {
-                    if (err) {
-                      console.log(err)
-                      return
-                    }
-                    
-                  }
-                  )
-                }
               })
+              console.log(`Файл: ${path.basename(currentPath)}`, ' скопирован');
             })
+          })
         }
-      }) 
+      })
     })
+    observer.removeObserver(src)
   })
 }
-// console.log(args.entry)
+
 try {
-  console.log(path.resolve('src'));
   sorter(config.src)
-  
+  observer.start('Observer is run')
 } catch (error) {
   console.log(error.message);
 }
 
 
-process.on('exit', function() {
-  if (args.delete) {
-    // console.log(__dirname);
-    // rimraf('./src', () => { console.log("done"); });
-    fs.rmdir(path.resolve('src'), { recursive: true }, err => {
-      if(err) {
-        console.log(err);
-        return
-      }
-    })
-  }
-  })
+// process.on('exit', function () {
+//   if (args.delete) {
+//     fs.rmdirSync(config.src, { recursive: true })
+//   }
+// })
