@@ -1,10 +1,11 @@
+require('dotenv').config()
 const express = require('express')
 
 const app = express()
 
-const LIMIT = 20;
-const DELAY = 1000;
-const PORT = 3000;
+const LIMIT = process.env.LIMIT || 5;
+const DELAY = process.env.DELAY || 1000;
+const PORT = process.env.PORT || 3000;
 
 let date
 let connections = [];
@@ -19,7 +20,7 @@ let tick = 0;
 
 setTimeout(function run() {
   date = new Date().toTimeString()
-  console.log(date);
+  console.log(tick, '--- ', date);
   if(++tick > LIMIT) {
     connections.map(res => {
       res.write(`Время завершения ${date}`)
